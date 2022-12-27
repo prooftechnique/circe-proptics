@@ -11,14 +11,14 @@ import xerial.sbt.Sonatype
 import xerial.sbt.Sonatype.autoImport._
 
 object Settings {
-  val Scala213 = "2.13.10"
-  val Scala212 = "2.12.16"
-  val ScalaDotty = "3.2.1"
+  val Scala213                        = "2.13.10"
+  val Scala212                        = "2.12.16"
+  val ScalaDotty                      = "3.2.1"
   val scalaDottyVersions: Seq[String] = Seq(ScalaDotty)
   lazy val kindProjector = "org.typelevel" % "kind-projector" % "0.13.2" cross CrossVersion.full
-  lazy val organizeImports = "com.github.liancheng" %% "organize-imports" % "0.6.0"
+  lazy val organizeImports              = "com.github.liancheng" %% "organize-imports" % "0.6.0"
   val latestVersion: SettingKey[String] = settingKey[String]("Latest stable released version")
-  private val sonatypeRepo = s"https://${Sonatype.sonatype01}/service/local"
+  private val sonatypeRepo              = s"https://${Sonatype.sonatype01}/service/local"
   private def stdOptions(scalaVersion: String): Seq[String] =
     if (isScala3(scalaVersion))
       Seq(
@@ -64,11 +64,11 @@ object Settings {
   lazy val stdSettings: Seq[Def.Setting[_]] =
     Seq(
       Test / parallelExecution := true,
-      sonatypeRepository := sonatypeRepo,
+      sonatypeRepository       := sonatypeRepo,
       ThisBuild / scalaVersion := Scala213,
-      sonatypeCredentialHost := Sonatype.sonatype01,
-      semanticdbVersion := scalafixSemanticdb.revision,
-      semanticdbEnabled := true,
+      sonatypeCredentialHost   := Sonatype.sonatype01,
+      semanticdbVersion        := scalafixSemanticdb.revision,
+      semanticdbEnabled        := true,
       ThisBuild / scalafixDependencies += organizeImports,
       Compile / doc / scalacOptions ~= removeScalaOptions,
       libraryDependencies ++= {
@@ -76,7 +76,7 @@ object Settings {
         else Seq(compilerPlugin(kindProjector))
       },
       crossScalaVersions := Seq(Scala212, Scala213) ++ scalaDottyVersions,
-      scalacOptions := stdOptions(scalaVersion.value) ++ extraOptions(scalaVersion.value),
+      scalacOptions      := stdOptions(scalaVersion.value) ++ extraOptions(scalaVersion.value),
       ThisBuild / scalafixScalaBinaryVersion := {
         if (isScala3(scalaVersion.value)) "2.12"
         else CrossVersion.binaryScalaVersion(scalaVersion.value)
@@ -97,15 +97,22 @@ object Settings {
       .filterNot(_.startsWith("-Wconf"))
       .filterNot(_.contains("Ywarn-unused"))
 
-  def platformSpecificSources(platform: String, conf: String, baseDirectory: File)(versions: String*): List[File] =
+  def platformSpecificSources(platform: String, conf: String, baseDirectory: File)(
+      versions: String*
+  ): List[File] =
     for {
       platform <- List("shared", platform)
-      version <- "scala" :: versions.toList.map("scala-" + _)
+      version  <- "scala" :: versions.toList.map("scala-" + _)
       result = baseDirectory.getParentFile / platform.toLowerCase / "src" / conf / version
       if result.exists
     } yield result
 
-  def crossPlatformSources(scalaVer: String, platform: String, conf: String, baseDir: File): List[File] = {
+  def crossPlatformSources(
+      scalaVer: String,
+      platform: String,
+      conf: String,
+      baseDir: File
+  ): List[File] = {
     val versions = CrossVersion.partialVersion(scalaVer) match {
       case Some((2, 12)) =>
         List("2.12", "2.12+", "2.12-2.13", "2.x")
@@ -140,10 +147,10 @@ object Settings {
 
   lazy val noPublishSettings: Seq[Def.Setting[_]] =
     Seq(
-      publish := {},
-      publishLocal := {},
+      publish         := {},
+      publishLocal    := {},
       publishArtifact := false,
-      skip / publish := true
+      skip / publish  := true
     )
 
   def welcomeMessage: Def.Setting[String] = onLoadMessage := {
@@ -153,17 +160,19 @@ object Settings {
 
     def item(text: String): String = s"${Consl.MAGENTA}> ${Consl.BLUE}$text${Consl.RESET}"
 
-    s"""|${header("""    ____                   __  _           ___                ___""")}
-        |${header("""   / __ \_________  ____  / /_(_)_________/ _/               /  /""")}
-        |${header("""  / /_/ / ___/ __ \/ __ \/ __/ / ___/ ___/ /                 / /""")}
-        |${header(""" / ____/ /  / /_/ / /_/ / /_/ / /__(__  ) /     _           / /""")}
-        |${header("""/_/   /_/   \____/  ___/\__/_/\___/____/ /_____( )  _______/ /""")}
-        |${header(s"                /_/                   /__/_____//  /_____/__/   ${(ThisBuild / latestVersion).value}")}
+    val theHeader = s"""
+         |  ____ _              __                 __
+         | / ___(_)_ __ ___ ___| _|               |_ |
+         || |   | | '__/ __/ _ \\ |                 | |
+         || |___| | | | (_|  __/ |       _         | |
+         | \\____|_|_|  \\___\\___| | _____( )  _____ | |
+         |                     |__|_____|/  |_____|__| ${(ThisBuild / latestVersion).value}
+         |""".stripMargin.split('\n').map(header).mkString("\n")
+
+    s"""|$theHeader
         |
         |Useful sbt tasks:
         |${item("build")} - Prepares sources, compiles and runs tests.
-        |${item("prepare")} - Prepares sources by applying both scalafix and scalafmt
-        |${item("fix")} - Fixes sources files using scalafix
         |${item("fmt")} - Formats source files using scalafmt
         |${item("testJVM")} - Runs all JVM tests
         |${item("testJS")} - Runs all ScalaJS tests
@@ -173,7 +182,7 @@ object Settings {
   def mdocSettings(references: ProjectReference*) = Seq(
     mdoc := (Compile / run).evaluated,
     scalacOptions ~= removeScalaOptions,
-    crossScalaVersions := Seq(scalaVersion.value),
+    crossScalaVersions                         := Seq(scalaVersion.value),
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(references: _*),
     ScalaUnidoc / unidoc / target := (LocalRootProject / baseDirectory).value / "website" / "static" / "api",
     cleanFiles += (ScalaUnidoc / unidoc / target).value,
