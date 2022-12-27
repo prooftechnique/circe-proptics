@@ -1,0 +1,89 @@
+name: CI
+
+env:
+  JDK_JAVA_OPTIONS: -XX:+PrintCommandLineFlags -Xmx3G -XX:+UseG1GC
+  JVM_OPTS: -XX:+PrintCommandLineFlags -Xmx3G -XX:+UseG1GC
+
+on:
+  pull_request:
+  push:
+    branches: ['main']
+  release:
+    types:
+      - published
+
+jobs:
+  lint:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout current branch
+        uses: actions/checkout@v3
+      - name: Setup Scala and Java
+        uses: olafurpg/setup-scala@v13
+      - name: Cache scala dependencies
+        uses: coursier/cache-action@v6
+      - name: Lint code
+        run: sbt check
+
+  mdoc:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout current branch
+        uses: actions/checkout@v3
+      - name: Setup Scala and Java
+        uses: olafurpg/setup-scala@v13
+      - name: Cache scala dependencies
+        uses: coursier/cache-action@v6
+      - name: Check Document Generation
+        run: sbt docs/mdoc
+
+  test:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ['adopt@1.8', 'adopt@1.11']
+        scala: ['2.12.17', '2.13.10', '3.2.1']
+        platform: ['JVM', 'JS']
+    steps:
+      - name: Checkout current branch
+        uses: actions/checkout@v3
+      - name: Setup Scala and Java
+        uses: olafurpg/setup-scala@v13
+        with:
+          java-version: ${{ matrix.java }}
+      - name: Cache scala dependencies
+        uses: coursier/cache-action@v6
+      - name: Test
+        run: sbt ++${{ matrix.scala }}! test${{ matrix.platform }}
+
+  ci:
+    runs-on: ubuntu-20.04
+    needs: [lint, mdoc, test]
+    steps:
+      - name: Run all steps
+        run:
+          echo "ci passed, github.ref ${{ github.ref }}"
+
+  publish:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 60
+    needs: [ci]
+    if: contains(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout current branch
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup Scala and Java
+        uses: olafurpg/setup-scala@v13
+      - name: Release
+        run: sbt ci-release
+        env:
+          PGP_SECRET: ${{ secrets.RELEASE_PGP }}
+          PGP_PASSPHRASE: ${{ secrets.RELEASE_PGP_CREDS }}
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USER }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASS }}
